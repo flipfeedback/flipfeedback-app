@@ -1,0 +1,47 @@
+# Local full-stack: web + api + postgres. Run with: docker compose up --build
+# This mirrors the small-startup topology the infra repo deploys on a single host.
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-flipfeedback}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-flipfeedback}
+      POSTGRES_DB: ${POSTGRES_DB:-flipfeedback}
+    ports:
+      - '${POSTGRES_HOST_PORT:-5432}:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-flipfeedback}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: ./api
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-flipfeedback}:${POSTGRES_PASSWORD:-flipfeedback}@db:5432/${POSTGRES_DB:-flipfeedback}?schema=public
+      # Provide via a .env file or your shell; never commit a real secret.
+      JWT_SECRET: ${JWT_SECRET:-dev-only-insecure-secret-change-me}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - '4000:4000'
+
+  web:
+    build: ./web
+    environment:
+      # Browser-side calls go here. For local compose the SPA hits the host-mapped API.
+      API_URL: ${WEB_API_URL:-http://localhost:4000}
+    depends_on:
+      - api
+    ports:
+      - '8080:80'
+
+volumes:
+  pgdata:

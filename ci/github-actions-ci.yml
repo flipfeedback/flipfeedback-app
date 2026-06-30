@@ -1,0 +1,60 @@
+# GitHub Actions CI for flipfeedback-app.
+#
+# Staged here under ci/ rather than .github/workflows/ because the build agent's
+# push token does not carry the GitHub `workflow` scope. To activate, a maintainer
+# (or flipfeedback-infra's deploy automation, which holds workflow-scoped creds)
+# copies this file to .github/workflows/ci.yml.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  api:
+    name: API (lint, typecheck, test, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install
+      - run: npx prisma generate
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  web:
+    name: Web (lint, typecheck, test, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  images:
+    name: Build Docker images
+    runs-on: ubuntu-latest
+    needs: [api, web]
+    steps:
+      - uses: actions/checkout@v4
+      # Verify the images build. Pushing to a registry is wired by flipfeedback-infra
+      # with its own credentials; CI here proves the Dockerfiles are valid.
+      - run: docker build -t flipfeedback-api:ci ./api
+      - run: docker build -t flipfeedback-web:ci ./web
