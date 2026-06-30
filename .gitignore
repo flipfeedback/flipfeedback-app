@@ -4,13 +4,19 @@
 .idea/
 .vscode/
 
-# deps / build (per-repo specifics added when fleshed out)
+# deps / build
 node_modules/
 dist/
 build/
+coverage/
+*.log
+
+# secrets / local env — never commit real env files (this repo is public),
+# but keep the documented .env.example templates.
 .env
 .env.*
-*.log
+!.env.example
+!**/.env.example
 
 # python
 __pycache__/

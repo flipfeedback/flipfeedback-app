@@ -1,0 +1,142 @@
+// FlipFeedback data model. The API owns this schema (Prisma migrations).
+// Customers are the businesses using FlipFeedback; each belongs to an Organization
+// (a tenant). Feedback items flow in from Sources and get triaged by team Users.
+
+generator client {
+  provider      = "prisma-client-js"
+  // Include the musl/OpenSSL 3 target so the engine runs on alpine in Docker
+  // as well as the local dev machine.
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SourceType {
+  CAMPAIGN
+  CHANNEL
+  CUSTOMER
+}
+
+enum FeedbackStatus {
+  NEW
+  IN_REVIEW
+  RESOLVED
+}
+
+enum Sentiment {
+  POSITIVE
+  NEUTRAL
+  NEGATIVE
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+// A tenant: a customer business using FlipFeedback.
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users     User[]
+  sources   Source[]
+  labels    Label[]
+  feedback  Feedback[]
+}
+
+// A member of the customer's team who logs into the product.
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         UserRole @default(MEMBER)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  assignedFeedback Feedback[] @relation("AssignedTo")
+
+  @@index([organizationId])
+}
+
+// A connected source of feedback: a campaign, a channel, or a customer.
+model Source {
+  id        String     @id @default(cuid())
+  name      String
+  type      SourceType
+  // Optional campaign grouping label so analytics can break down by campaign.
+  campaign  String?
+  connected Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  feedback Feedback[]
+
+  @@index([organizationId])
+}
+
+model Label {
+  id        String   @id @default(cuid())
+  name      String
+  color     String   @default("#6366f1")
+  createdAt DateTime @default(now())
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  feedback FeedbackLabel[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+model Feedback {
+  id        String         @id @default(cuid())
+  message   String
+  author    String?        // who left the feedback (an end user / customer contact)
+  status    FeedbackStatus @default(NEW)
+  sentiment Sentiment      @default(NEUTRAL)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  sourceId String
+  source   Source @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  assignedToId String?
+  assignedTo   User?   @relation("AssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  labels FeedbackLabel[]
+
+  @@index([organizationId, status])
+  @@index([organizationId, createdAt])
+  @@index([sourceId])
+}
+
+// Join table for the many-to-many feedback<->label relation.
+model FeedbackLabel {
+  feedbackId String
+  feedback   Feedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+
+  labelId String
+  label   Label  @relation(fields: [labelId], references: [id], onDelete: Cascade)
+
+  @@id([feedbackId, labelId])
+  @@index([labelId])
+}
