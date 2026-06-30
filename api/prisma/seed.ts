@@ -9,11 +9,15 @@
  * Run with:  npm run seed   (from api/)  or  prisma db seed
  *
  * The richer, generator-driven seed data ultimately comes from flipfeedback-ops;
- * this entrypoint is the documented contract that consumes it. Until that lands,
- * the data below is self-contained and deterministic.
+ * this entrypoint is the documented contract that consumes it. By default the
+ * self-contained data below is used. To load the generator output instead, set
+ * OPS_SEED_FILE to a seed-data.json produced by flipfeedback-ops
+ * (generators/generate-seed.ts). That file's shape is the contract; see
+ * loadOpsSeedFile() below.
  *
  * Demo credentials (seed only, not a real secret): demo@flipfeedback.com / demo-password-123
  */
+import { readFileSync } from 'node:fs';
 import { PrismaClient, SourceType, FeedbackStatus, Sentiment } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { classifySentiment } from '../src/lib/sentiment';
@@ -97,7 +101,103 @@ const AUTHORS = [
   'riley@wayne.example',
 ];
 
-async function main() {
+// ---------------------------------------------------------------------------
+// flipfeedback-ops generator contract. Mirrors generators/generate-seed.ts.
+// ---------------------------------------------------------------------------
+interface OpsSeedDocument {
+  generator: string;
+  version: number;
+  organizations: {
+    name: string;
+    slug: string;
+    users: { name: string; email: string; role: 'OWNER' | 'ADMIN' | 'MEMBER' }[];
+    sources: { ref: string; name: string; type: SourceType; campaign?: string; connected: boolean }[];
+    labels: { ref: string; name: string; color: string }[];
+    feedback: {
+      message: string;
+      author: string | null;
+      status: FeedbackStatus;
+      sentiment: Sentiment;
+      daysAgo: number;
+      hourOffset: number;
+      sourceRef: string;
+      assigneeEmail: string | null;
+      labelRefs: string[];
+    }[];
+  }[];
+}
+
+async function seedFromOpsFile(path: string) {
+  console.log(`Seeding FlipFeedback from flipfeedback-ops file: ${path}`);
+  const doc = JSON.parse(readFileSync(path, 'utf8')) as OpsSeedDocument;
+  if (!doc.organizations?.length) throw new Error('ops seed file has no organizations');
+
+  const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
+  const now = Date.now();
+  const DAY = 24 * 60 * 60 * 1000;
+  const HOUR = 60 * 60 * 1000;
+
+  let totalOrgs = 0;
+  let totalFeedback = 0;
+  for (const o of doc.organizations) {
+    // Idempotent per org by slug.
+    await prisma.organization.deleteMany({ where: { slug: o.slug } });
+    const org = await prisma.organization.create({
+      data: {
+        name: o.name,
+        slug: o.slug,
+        users: { create: o.users.map((u) => ({ name: u.name, email: u.email, passwordHash, role: u.role })) },
+      },
+      include: { users: true },
+    });
+
+    const sourceByRef = new Map<string, string>();
+    for (const s of o.sources) {
+      const created = await prisma.source.create({
+        data: { name: s.name, type: s.type, campaign: s.campaign, connected: s.connected, organizationId: org.id },
+      });
+      sourceByRef.set(s.ref, created.id);
+    }
+
+    const labelByRef = new Map<string, string>();
+    for (const l of o.labels) {
+      const created = await prisma.label.create({ data: { name: l.name, color: l.color, organizationId: org.id } });
+      labelByRef.set(l.ref, created.id);
+    }
+
+    const userByEmail = new Map(org.users.map((u) => [u.email, u.id]));
+
+    for (const f of o.feedback) {
+      const sourceId = sourceByRef.get(f.sourceRef);
+      if (!sourceId) continue; // skip dangling refs defensively
+      const createdAt = new Date(now - f.daysAgo * DAY - f.hourOffset * HOUR);
+      const assignedToId = f.assigneeEmail ? userByEmail.get(f.assigneeEmail) ?? null : null;
+      const feedback = await prisma.feedback.create({
+        data: {
+          message: f.message,
+          author: f.author,
+          status: f.status,
+          // Trust the file's sentiment if present, else classify.
+          sentiment: f.sentiment ?? classifySentiment(f.message),
+          createdAt,
+          organizationId: org.id,
+          sourceId,
+          assignedToId,
+        },
+      });
+      for (const ref of f.labelRefs) {
+        const labelId = labelByRef.get(ref);
+        if (labelId) await prisma.feedbackLabel.create({ data: { feedbackId: feedback.id, labelId } });
+      }
+      totalFeedback += 1;
+    }
+    totalOrgs += 1;
+  }
+  console.log(`Seeded ${totalOrgs} organizations, ${totalFeedback} feedback items from ops generator.`);
+  console.log(`Demo login: demo@flipfeedback.com / ${DEMO_PASSWORD}`);
+}
+
+async function seedBuiltin() {
   console.log('Seeding FlipFeedback demo data...');
 
   // Reset demo org idempotently by slug.
@@ -173,6 +273,15 @@ async function main() {
 
   console.log(`Seeded org "${org.name}" with ${sources.length} sources, ${labels.length} labels, ${created} feedback items.`);
   console.log(`Demo login: demo@flipfeedback.com / ${DEMO_PASSWORD}`);
+}
+
+async function main() {
+  const opsFile = process.env.OPS_SEED_FILE;
+  if (opsFile) {
+    await seedFromOpsFile(opsFile);
+  } else {
+    await seedBuiltin();
+  }
 }
 
 main()
