@@ -3,9 +3,9 @@
 # Run from the repo root after `npm --prefix web run build`.
 set -euo pipefail
 
-# AWS credentials for the flipfeedback-web-assets deploy bucket.
-AWS_ACCESS_KEY_ID="AKIAZK75BVCTQ3ENNF4K"
-AWS_SECRET_ACCESS_KEY="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"
+# AWS credentials come from the CI environment / GitHub Actions secrets — never hardcode.
+AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID:?set in CI secrets}"
+AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY:?set in CI secrets}"
 AWS_DEFAULT_REGION="us-east-1"
 export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_DEFAULT_REGION
 
