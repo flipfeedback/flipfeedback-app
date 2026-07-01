@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { api, ApiError, FeedbackQuery } from '../lib/api';
 import type { Feedback, Label, Source, TeamMember } from '../lib/types';
 import { LabelChip, relativeTime, SentimentBadge, StatusBadge } from '../components/badges';
+import { usePersistentState } from '../lib/usePersistentState';
 
 export function InboxPage() {
   const [items, setItems] = useState<Feedback[]>([]);
@@ -13,7 +14,9 @@ export function InboxPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const [filters, setFilters] = useState<FeedbackQuery>({});
+  // Persist filters so they survive navigating away and back (or switching
+  // browser tabs), instead of resetting when the page unmounts. (FFSCRUM-16)
+  const [filters, setFilters] = usePersistentState<FeedbackQuery>('flipfeedback.inbox.filters', {});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -59,21 +62,31 @@ export function InboxPage() {
       <div className="toolbar">
         <input
           placeholder="Search messages…"
+          value={filters.q ?? ''}
           onChange={(e) => setFilters((f) => ({ ...f, q: e.target.value || undefined }))}
         />
-        <select onChange={(e) => setFilters((f) => ({ ...f, status: (e.target.value || undefined) as never }))}>
+        <select
+          value={filters.status ?? ''}
+          onChange={(e) => setFilters((f) => ({ ...f, status: (e.target.value || undefined) as never }))}
+        >
           <option value="">All statuses</option>
           <option value="NEW">New</option>
           <option value="IN_REVIEW">In review</option>
           <option value="RESOLVED">Resolved</option>
         </select>
-        <select onChange={(e) => setFilters((f) => ({ ...f, sentiment: e.target.value || undefined }))}>
+        <select
+          value={filters.sentiment ?? ''}
+          onChange={(e) => setFilters((f) => ({ ...f, sentiment: e.target.value || undefined }))}
+        >
           <option value="">All sentiment</option>
           <option value="POSITIVE">Positive</option>
           <option value="NEUTRAL">Neutral</option>
           <option value="NEGATIVE">Negative</option>
         </select>
-        <select onChange={(e) => setFilters((f) => ({ ...f, sourceId: e.target.value || undefined }))}>
+        <select
+          value={filters.sourceId ?? ''}
+          onChange={(e) => setFilters((f) => ({ ...f, sourceId: e.target.value || undefined }))}
+        >
           <option value="">All sources</option>
           {sources.map((s) => (
             <option key={s.id} value={s.id}>
