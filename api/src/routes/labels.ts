@@ -49,7 +49,15 @@ labelsRouter.delete(
       where: { id: req.params.id, organizationId: req.auth!.organizationId },
     });
     if (!existing) throw new HttpError(404, 'Label not found');
-    await prisma.label.delete({ where: { id: existing.id } });
+    // Detach the label from any feedback it is attached to before deleting it.
+    // Deleting a still-referenced label otherwise fails with a foreign-key
+    // error and 500s the Settings page (FFSCRUM-17); we don't rely on a
+    // database-level cascade being present. Do both in one transaction so a
+    // label is never left half-detached.
+    await prisma.$transaction(async (tx) => {
+      await tx.feedbackLabel.deleteMany({ where: { labelId: existing.id } });
+      await tx.label.delete({ where: { id: existing.id } });
+    });
     res.status(204).end();
   }),
 );
