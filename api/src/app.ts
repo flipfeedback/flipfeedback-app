@@ -21,7 +21,7 @@ export function createApp(): Express {
       credentials: true,
     }),
   );
-  app.use(express.json({ limit: '1mb' }));
+  app.use(express.json({ limit: config.jsonBodyLimit }));
   if (config.env !== 'test') {
     app.use(morgan('tiny'));
   }
