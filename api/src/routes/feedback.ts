@@ -136,14 +136,26 @@ feedbackRouter.patch(
       if (!assignee) throw new HttpError(400, 'Assignee is not a member of this organization');
     }
 
-    const updated = await prisma.feedback.update({
-      where: { id: existing.id },
-      data: {
-        ...(body.status ? { status: body.status } : {}),
-        ...(body.assignedToId !== undefined ? { assignedToId: body.assignedToId } : {}),
-      },
-      include: includeAll,
-    });
+    let updated;
+    try {
+      updated = await prisma.feedback.update({
+        where: { id: existing.id },
+        data: {
+          ...(body.status ? { status: body.status } : {}),
+          ...(body.assignedToId !== undefined ? { assignedToId: body.assignedToId } : {}),
+        },
+        include: includeAll,
+      });
+    } catch (err) {
+      // The assignee is validated above, but it can be removed between that
+      // check and this write (or otherwise fail the FK), which Prisma raises as
+      // P2003. Surface it as a clear 400 instead of letting it fall through to a
+      // generic 500 so the assignment failure is visible to the user (FFSCRUM-18).
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2003') {
+        throw new HttpError(400, 'Assignee is not a member of this organization');
+      }
+      throw err;
+    }
     res.json(serialize(updated));
   }),
 );
