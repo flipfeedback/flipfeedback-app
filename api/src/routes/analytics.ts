@@ -104,3 +104,61 @@ analyticsRouter.get(
     });
   }),
 );
+
+// Quote a single CSV field per RFC 4180: wrap in double quotes when it contains
+// a comma, quote or newline, and escape embedded quotes by doubling them.
+function csvField(value: unknown): string {
+  const s = value == null ? '' : String(value);
+  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+const EXPORT_COLUMNS = [
+  'id',
+  'createdAt',
+  'status',
+  'sentiment',
+  'source',
+  'campaign',
+  'author',
+  'message',
+] as const;
+
+// GET /analytics/export — the underlying feedback rows behind the charts, as a
+// downloadable CSV (FFSCRUM-12). Honours the same ?days window as GET /analytics.
+analyticsRouter.get(
+  '/export',
+  asyncHandler(async (req, res) => {
+    const { days = 30 } = query.parse(req.query);
+    const organizationId = req.auth!.organizationId;
+
+    const since = new Date();
+    since.setUTCHours(0, 0, 0, 0);
+    since.setUTCDate(since.getUTCDate() - (days - 1));
+
+    const items = await prisma.feedback.findMany({
+      where: { organizationId, createdAt: { gte: since } },
+      include: { source: true },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const rows = items.map((f) =>
+      [
+        f.id,
+        f.createdAt.toISOString(),
+        f.status,
+        f.sentiment,
+        f.source?.name ?? '',
+        f.source?.campaign ?? '',
+        f.author ?? '',
+        f.message,
+      ]
+        .map(csvField)
+        .join(','),
+    );
+    const csv = [EXPORT_COLUMNS.join(','), ...rows].join('\r\n');
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="feedback-export-${days}d.csv"`);
+    res.send(csv);
+  }),
+);
