@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>FlipFeedback Admin — Control Panel</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%234f46e5'/%3E%3Ctext x='16' y='22' font-family='Arial,Helvetica,sans-serif' font-size='18' font-weight='700' fill='white' text-anchor='middle'%3EF%3C/text%3E%3C/svg%3E" />
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --border: #e3e6ea;
+      --text: #1c2127;
+      --muted: #6b7280;
+      --primary: #4f46e5;
+      --primary-hover: #4338ca;
+      --resolved: #059669;
+      --review: #d97706;
+      --neg: #dc2626;
+      --ops: #111827;
+      --radius: 8px;
+      --shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.1);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; }
+    a { color: var(--primary); text-decoration: none; }
+
+    .ops-bar {
+      background: var(--ops);
+      color: #e5e7eb;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .ops-bar .brand { font-size: 17px; font-weight: 700; color: #fff; }
+    .ops-bar .brand span { color: #818cf8; }
+    .ops-bar .badge {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+      padding: 2px 8px; border-radius: 999px;
+      background: rgba(129, 140, 248, 0.18); color: #c7d2fe;
+      border: 1px solid rgba(129, 140, 248, 0.35);
+    }
+    .ops-bar .right { margin-left: auto; display: flex; align-items: center; gap: 14px; }
+    .ops-bar .host { font-size: 12px; color: #9ca3af; font-variant-numeric: tabular-nums; }
+    .ops-bar .signout {
+      color: #e5e7eb; font: inherit; background: transparent;
+      border: 1px solid #374151; border-radius: 6px; padding: 5px 10px; cursor: pointer;
+    }
+    .ops-bar .signout:hover { background: #1f2937; }
+
+    .main { padding: 22px 24px; max-width: 1100px; margin: 0 auto; }
+    .page-title { font-size: 20px; font-weight: 700; margin: 0 0 4px; }
+    .page-sub { color: var(--muted); margin: 0 0 20px; }
+
+    .section-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin: 22px 0 10px; }
+
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; }
+    .stat {
+      background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+      box-shadow: var(--shadow); padding: 16px;
+    }
+    .stat .lbl { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; }
+    .stat .num { font-size: 26px; font-weight: 700; margin-top: 4px; font-variant-numeric: tabular-nums; }
+    .bar { height: 6px; border-radius: 999px; background: #eef0f3; margin-top: 10px; overflow: hidden; }
+    .bar > i { display: block; height: 100%; background: var(--primary); border-radius: 999px; }
+    .bar.warn > i { background: var(--review); }
+
+    .panel {
+      background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+      box-shadow: var(--shadow); overflow: hidden;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 10px 16px; border-bottom: 1px solid var(--border); font-size: 13px; }
+    th { color: var(--muted); font-weight: 600; width: 220px; }
+    tr:last-child td, tr:last-child th { border-bottom: none; }
+    td .ok { color: var(--resolved); font-weight: 600; }
+
+    .modules { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+    .module {
+      background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+      box-shadow: var(--shadow); padding: 16px; display: flex; align-items: center; gap: 12px;
+      color: var(--text); cursor: pointer;
+    }
+    .module:hover { border-color: #c7cdd4; text-decoration: none; }
+    .module .ico {
+      width: 34px; height: 34px; border-radius: 8px; flex: 0 0 34px;
+      display: grid; place-items: center; background: #eef2ff; color: var(--primary);
+    }
+    .module .ico svg { width: 18px; height: 18px; }
+    .module .name { font-weight: 600; font-size: 13px; }
+    .module .desc { color: var(--muted); font-size: 11px; }
+
+    footer { padding: 20px 24px 32px; text-align: center; color: #9ca3af; font-size: 12px; line-height: 1.6; }
+
+    @media (max-width: 640px) { th { width: auto; } }
+  </style>
+</head>
+<body>
+  <div class="ops-bar">
+    <div class="brand">Flip<span>Feedback</span> Admin</div>
+    <div class="badge">ADMIN · PRODUCTION</div>
+    <div class="right">
+      <span class="host" id="clock">flipfeedback-prod-1</span>
+      <button class="signout" id="signout">Sign out</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <h1 class="page-title">Control Panel</h1>
+    <p class="page-sub">flipfeedback-prod-1 · CentOS Linux 7.9 · logged in as <strong>admin</strong></p>
+
+    <div class="section-title">Server status</div>
+    <div class="cards">
+      <div class="stat">
+        <div class="lbl">CPU load</div>
+        <div class="num" id="cpu">12%</div>
+        <div class="bar"><i style="width:12%"></i></div>
+      </div>
+      <div class="stat">
+        <div class="lbl">Memory</div>
+        <div class="num" id="mem">3.1 / 8 GB</div>
+        <div class="bar"><i style="width:39%"></i></div>
+      </div>
+      <div class="stat">
+        <div class="lbl">Disk usage</div>
+        <div class="num">58%</div>
+        <div class="bar warn"><i style="width:58%"></i></div>
+      </div>
+      <div class="stat">
+        <div class="lbl">Uptime</div>
+        <div class="num">47 days</div>
+        <div class="bar"><i style="width:80%"></i></div>
+      </div>
+    </div>
+
+    <div class="section-title">Server information</div>
+    <div class="panel">
+      <table>
+        <tr><th>Primary domain</th><td>flipfeedback.com</td></tr>
+        <tr><th>Hostname</th><td>flipfeedback-prod-1</td></tr>
+        <tr><th>Shared IP address</th><td>203.0.113.42</td></tr>
+        <tr><th>Operating system</th><td>CentOS Linux 7.9 (kernel 3.10.0)</td></tr>
+        <tr><th>Web server</th><td>nginx 1.27.0</td></tr>
+        <tr><th>PHP version</th><td>8.2.19</td></tr>
+        <tr><th>Database</th><td>PostgreSQL 16.3 · MySQL 8.0.37</td></tr>
+        <tr><th>SSL/TLS</th><td><span class="ok">Active</span> · Let's Encrypt, renews in 61 days</td></tr>
+        <tr><th>Plan</th><td>Business · unlimited domains</td></tr>
+      </table>
+    </div>
+
+    <div class="section-title">Tools</div>
+    <div class="modules" id="modules"></div>
+  </div>
+
+  <footer>
+    FlipFeedback Operations Console · build 2026.7.1<br />
+    Internal use only — this system is not intended for public access.
+  </footer>
+
+  <script>
+    // Weak, client-side gate: only reachable after the login page sets the marker.
+    if (!sessionStorage.getItem('ff_admin')) {
+      window.location.replace('/admin/index.html');
+    }
+
+    document.getElementById('signout').addEventListener('click', function () {
+      sessionStorage.removeItem('ff_admin');
+      window.location.href = '/admin/index.html';
+    });
+
+    // cPanel-style tool tiles. Facades only — no real functionality.
+    var ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>';
+    var MODULES = [
+      { name: 'File Manager', desc: 'Browse files' },
+      { name: 'Databases', desc: 'PostgreSQL / MySQL' },
+      { name: 'phpMyAdmin', desc: 'SQL console' },
+      { name: 'Email Accounts', desc: '14 mailboxes' },
+      { name: 'Domains', desc: '3 domains' },
+      { name: 'DNS Zone Editor', desc: 'Manage records' },
+      { name: 'SSL/TLS', desc: 'Certificates' },
+      { name: 'Cron Jobs', desc: '7 scheduled' },
+      { name: 'FTP Accounts', desc: '2 accounts' },
+      { name: 'Backups', desc: 'Daily · last 02:00' },
+      { name: 'Terminal', desc: 'Shell access' },
+      { name: 'Metrics', desc: 'Traffic & errors' }
+    ];
+    var host = document.getElementById('modules');
+    MODULES.forEach(function (m) {
+      var a = document.createElement('a');
+      a.href = '#';
+      a.className = 'module';
+      a.innerHTML = '<span class="ico">' + ICON + '</span>' +
+        '<span><span class="name">' + m.name + '</span><br /><span class="desc">' + m.desc + '</span></span>';
+      host.appendChild(a);
+    });
+  </script>
+</body>
+</html>
