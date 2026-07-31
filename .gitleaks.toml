@@ -1,0 +1,7 @@
+# gitleaks configuration for flipfeedback-app.
+# Uses the upstream default rule set (AWS keys, generic secrets, etc.) and
+# fails CI when a credential pattern is detected. See .github/workflows/ci.yml.
+title = "flipfeedback-app gitleaks config"
+
+[extend]
+useDefault = true
