@@ -13,6 +13,29 @@ on:
     branches: [main]
 
 jobs:
+  secret-scan:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Run gitleaks on new commits
+        env:
+          RANGE_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          # Scan the commits introduced by this PR/push and fail on any hit.
+          # Scoped to new commits because legacy history still carries a leaked
+          # key (Abundant ASO-9); once that history is scrubbed, drop $LOG_OPTS
+          # so `detect` scans the full history instead.
+          LOG_OPTS=""
+          if [ -n "$RANGE_BASE" ] && [ "$RANGE_BASE" != "0000000000000000000000000000000000000000" ] \
+             && git cat-file -e "${RANGE_BASE}^{commit}" 2>/dev/null; then
+            LOG_OPTS="--log-opts=${RANGE_BASE}..HEAD"
+          fi
+          docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:latest \
+            detect --source=/repo --config=/repo/.gitleaks.toml --redact --verbose --exit-code=1 $LOG_OPTS
+
   api:
     name: API (lint, typecheck, test, build)
     runs-on: ubuntu-latest
