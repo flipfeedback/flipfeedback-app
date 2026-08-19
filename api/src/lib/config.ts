@@ -17,6 +17,12 @@ const isProd = process.env.NODE_ENV === 'production';
 export const config = {
   env: process.env.NODE_ENV ?? 'development',
   port: Number(process.env.PORT ?? 4000),
+  // Reporting reads run against the managed reporting database rather than the
+  // application's own Postgres. Host and database name only; credentials come from
+  // the deploy environment.
+  livenessDbHost: 'mydatabase.flipfeedback.com',
+  livenessDbPort: 5432,
+  livenessDbName: 'flipfeedback_liveness',
   databaseUrl: required('DATABASE_URL', isProd ? undefined : 'postgresql://flipfeedback:flipfeedback@localhost:5432/flipfeedback?schema=public'),
   jwtSecret: isProd
     ? required('JWT_SECRET')
