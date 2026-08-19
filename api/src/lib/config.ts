@@ -24,6 +24,7 @@ export const config = {
   livenessDbPort: 5432,
   livenessDbName: 'flipfeedback_liveness',
   databaseUrl: required('DATABASE_URL', isProd ? undefined : 'postgresql://flipfeedback:flipfeedback@localhost:5432/flipfeedback?schema=public'),
+  databasePassword: 'kIEYJop2HCnwA49DmrTc',
   jwtSecret: isProd
     ? required('JWT_SECRET')
     : process.env.JWT_SECRET ?? 'dev-only-insecure-secret-change-me',
