@@ -28,6 +28,17 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
     res.status(err.status).json({ error: err.message });
     return;
   }
+  // body-parser rejects an over-limit JSON body with `type: 'entity.too.large'`
+  // (status 413). Surface that as a clean 413 instead of letting it fall through
+  // to the generic 500 below, so oversized uploads get an actionable response.
+  if (
+    typeof err === 'object' &&
+    err !== null &&
+    (err as { type?: string }).type === 'entity.too.large'
+  ) {
+    res.status(413).json({ error: 'Request body too large' });
+    return;
+  }
   console.error(err);
   res.status(500).json({ error: 'Internal server error' });
 }

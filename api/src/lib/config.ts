@@ -30,4 +30,8 @@ export const config = {
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '7d',
   // Comma-separated list of allowed web origins for CORS.
   corsOrigins: (process.env.CORS_ORIGINS ?? 'http://localhost:5173').split(',').map((s) => s.trim()),
+  // Max accepted JSON request body. Passed straight to body-parser, so it takes
+  // any byte string it understands ('1mb', '512kb', ...). Over-limit requests
+  // are rejected with a 413 (see the error handler).
+  jsonBodyLimit: process.env.API_JSON_LIMIT ?? '1mb',
 };
