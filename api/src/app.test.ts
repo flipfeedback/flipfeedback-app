@@ -1,5 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
+
+// /health now probes the DB; there is no Postgres in CI, so mock the shared
+// client to report a reachable database for these liveness-oriented checks.
+vi.mock('./lib/prisma', () => ({ prisma: { $queryRaw: vi.fn().mockResolvedValue([{ ok: 1 }]) } }));
+
 import { createApp } from './app';
 
 const app = createApp();
