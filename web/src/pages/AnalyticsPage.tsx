@@ -14,6 +14,7 @@ import {
   YAxis,
 } from 'recharts';
 import { api, ApiError } from '../lib/api';
+import { triggerDownload } from '../lib/download';
 import type { Analytics } from '../lib/types';
 
 const SENTIMENT_COLORS: Record<string, string> = {
@@ -26,6 +27,22 @@ export function AnalyticsPage() {
   const [data, setData] = useState<Analytics | null>(null);
   const [days, setDays] = useState(30);
   const [error, setError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  async function handleExport() {
+    setExportError(null);
+    setExporting(true);
+    try {
+      const { blob, filename } = await api.exportAnalytics(days);
+      triggerDownload(blob, filename);
+    } catch (err) {
+      setExportError(err instanceof ApiError ? err.message : 'Export failed');
+    } finally {
+      // Always clear the loading state so the button can never spin forever.
+      setExporting(false);
+    }
+  }
 
   useEffect(() => {
     api
@@ -48,12 +65,22 @@ export function AnalyticsPage() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1 className="page-title">Analytics</h1>
-        <select style={{ width: 'auto' }} value={days} onChange={(e) => setDays(Number(e.target.value))}>
-          <option value={7}>Last 7 days</option>
-          <option value={30}>Last 30 days</option>
-          <option value={90}>Last 90 days</option>
-        </select>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button onClick={handleExport} disabled={exporting}>
+            {exporting ? 'Exporting…' : 'Export CSV'}
+          </button>
+          <select style={{ width: 'auto' }} value={days} onChange={(e) => setDays(Number(e.target.value))}>
+            <option value={7}>Last 7 days</option>
+            <option value={30}>Last 30 days</option>
+            <option value={90}>Last 90 days</option>
+          </select>
+        </div>
       </div>
+      {exportError && (
+        <div className="error" style={{ marginTop: 8 }}>
+          {exportError}
+        </div>
+      )}
 
       <div className="cards">
         <div className="panel card">
