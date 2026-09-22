@@ -106,4 +106,35 @@ export const api = {
 
   // Analytics
   analytics: (days = 30) => request<Analytics>(`/analytics?days=${days}`),
+
+  // Downloads the underlying feedback rows behind the analytics charts as a CSV
+  // (GET /analytics/export). Returns the blob plus the server-provided filename
+  // so the caller can trigger a browser download. Bypasses the JSON `request`
+  // helper because the response body is text/csv, not JSON.
+  exportAnalytics: async (days = 30): Promise<{ blob: Blob; filename: string }> => {
+    const headers = new Headers();
+    const token = getToken();
+    if (token) headers.set('Authorization', `Bearer ${token}`);
+
+    const res = await fetch(`${API_URL}/analytics/export?days=${days}`, { headers });
+    if (!res.ok) {
+      const text = await res.text();
+      let message = `Request failed (${res.status})`;
+      try {
+        message = (text ? JSON.parse(text) : undefined)?.error ?? message;
+      } catch {
+        // Non-JSON error body — keep the generic status message.
+      }
+      throw new ApiError(res.status, message);
+    }
+    const blob = await res.blob();
+    return { blob, filename: filenameFromDisposition(res.headers.get('Content-Disposition'), days) };
+  },
 };
+
+// Extract the filename from a Content-Disposition header, falling back to a
+// window-keyed default when the header is missing or malformed.
+function filenameFromDisposition(disposition: string | null, days: number): string {
+  const match = disposition?.match(/filename="?([^"]+?)"?(?:;|$)/i);
+  return match?.[1] ?? `feedback-export-${days}d.csv`;
+}
